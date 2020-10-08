@@ -1,0 +1,99 @@
+#include <Windows.h>
+
+#include <string>
+#define WM_NAME_MSG WM_USER 2
+
+LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+void TaoCuaSo(HWND);
+HWND hCuaSo1;
+HWND hCuaSo2;
+HMENU hMenu;
+HWND hCuaSo3;
+wchar_t lpFindData[1000];
+int length = 0;
+
+
+HWND hButton;
+int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR args, int nCmdShow) {
+	WNDCLASS wc = {};
+	
+	wc.hbrBackground = (HBRUSH)BACKGROUND_BLUE;
+	wc.hInstance = hInst;
+	wc.lpfnWndProc = WndProc;
+	wc.lpszClassName = L"Desktop Background";
+
+		if (!RegisterClassW(&wc)) {
+			return 0;
+
+			}
+		CreateWindowW(L"Desktop Background", L"THAI NGU", WS_VISIBLE | WS_OVERLAPPEDWINDOW,100,100,500,500, NULL,NULL, NULL,NULL );
+		hCuaSo3 = CreateWindowEx(0, L"Desktop Background", L"Remote Window", WS_OVERLAPPEDWINDOW, 500, 100, 500, 400, NULL, NULL, hInst, NULL);
+		MSG msg = {};
+		while (GetMessage(&msg,NULL,NULL,NULL))
+		{
+			TranslateMessage(&msg);
+			DispatchMessage(&msg);
+
+		}
+		return 0;
+}
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
+{
+	switch (msg)
+	{
+	
+	case WM_COMMAND:
+		if (wp == 1) {
+			wchar_t path[100];
+			char duoifile[4] = "jpg";
+			GetWindowTextW(hCuaSo1, path, 100);
+			while (path[length] != NULL)
+			{
+				length++;
+			}
+			if ((path[length - 1] == duoifile[2]) && (path[length - 2] == duoifile[1]) && (path[length - 3] == duoifile[0]))
+			{
+				HANDLE handle = FindFirstFile(path, (LPWIN32_FIND_DATA)lpFindData);
+
+				if (handle == INVALID_HANDLE_VALUE)
+				{
+					MessageBox(hwnd, L"Khong tim thay", L"Alert", MB_OK);
+				}
+				else
+				{
+					SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_SENDWININICHANGE);
+					MessageBox(hwnd, L"Congarts", L"Chuc Mung", MB_OK);
+
+
+
+				}
+
+			}
+			else
+			{
+				MessageBox(hwnd, L"Alert", L"canh bao", MB_OK);
+			}
+		}
+		
+		break;
+	case WM_DESTROY:
+		PostQuitMessage(0);
+		break;
+	case WM_CREATE:
+		TaoCuaSo(hwnd);
+		break;
+	default:
+		return DefWindowProc(hwnd, msg, wp, lp);
+	}
+}
+void TaoCuaSo(HWND hwnd)
+{
+	hCuaSo1 = CreateWindow(L"Edit", L"", WS_BORDER | WS_VISIBLE|WS_CHILD|ES_AUTOVSCROLL|ES_MULTILINE, 150, 100, 210, 30, hwnd, NULL, NULL, NULL);
+	hButton = CreateWindow(L"Button", L"Set Backgroud", WS_BORDER | WS_CHILD|WS_VISIBLE, 200, 152, 100, 30, hwnd, (HMENU) 1, NULL, NULL);
+	hCuaSo2 = CreateWindow(L"Edit", L"", WS_BORDER | WS_VISIBLE | WS_CHILD | ES_AUTOVSCROLL | ES_MULTILINE, 150, 280, 210, 30, hwnd, NULL, NULL, NULL);
+	
+}
+
+
+
+

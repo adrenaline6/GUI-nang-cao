@@ -27,8 +27,7 @@ int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR args, int nCmdShow) {
 
 			}
 		CreateWindowW(L"Desktop Background", L"THAI NGU", WS_VISIBLE | WS_OVERLAPPEDWINDOW,100,100,500,500, NULL,NULL, NULL,NULL );
-		hCuaSo3 = CreateWindowEx(0, L"Desktop Background", L"Remote Window", WS_OVERLAPPEDWINDOW, 500, 100, 500, 400, NULL, NULL, hInst, NULL);
-		MSG msg = {};
+		
 		while (GetMessage(&msg,NULL,NULL,NULL))
 		{
 			TranslateMessage(&msg);
@@ -90,7 +89,7 @@ void TaoCuaSo(HWND hwnd)
 {
 	hCuaSo1 = CreateWindow(L"Edit", L"", WS_BORDER | WS_VISIBLE|WS_CHILD|ES_AUTOVSCROLL|ES_MULTILINE, 150, 100, 210, 30, hwnd, NULL, NULL, NULL);
 	hButton = CreateWindow(L"Button", L"Set Backgroud", WS_BORDER | WS_CHILD|WS_VISIBLE, 200, 152, 100, 30, hwnd, (HMENU) 1, NULL, NULL);
-	hCuaSo2 = CreateWindow(L"Edit", L"", WS_BORDER | WS_VISIBLE | WS_CHILD | ES_AUTOVSCROLL | ES_MULTILINE, 150, 280, 210, 30, hwnd, NULL, NULL, NULL);
+	
 	
 }
 

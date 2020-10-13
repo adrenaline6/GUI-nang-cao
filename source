@@ -1,114 +1,72 @@
-#include <Windows.h>
+#include <Windows.h> 
 
-#include <string>
-#define WM_NAME_MSG WM_USER 2
+#include <commctrl.h>
 
+#define ID_TREEVIEW 100
 LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
-void TaoCuaSo(HWND);
 
-HWND hCuaSo1;
-HWND hCuaSo2;
-HWND hButton2;
-HWND hCuaSo3;
-wchar_t lpFindData[1000];
-int length = 0;
-HWND hwnd1;
-HWND hwnd2;
-HWND hButton1;
+HWND hwndTV;
+HWND hMain;
+HWND CreateATreeView(HWND hwndParnet);
+HTREEITEM AddItemToTree(HWND hwndTV,LPTSTR lpszText, int nLevel);
 
-HWND hButton;
 int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR args, int nCmdShow) {
-	WNDCLASS wc = {};
 	
-	wc.hbrBackground = (HBRUSH)BACKGROUND_BLUE;
-	wc.hInstance = hInst;
+	
+	
+	WNDCLASS wc = {};
+
+	
+	wc.hInstance = hInst; 
 	wc.lpfnWndProc = WndProc;
 	wc.lpszClassName = L"Desktop Background";
-	
-		if (!RegisterClassW(&wc)) {
-			return 0;
+	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
 
-			}
-		hwnd1 = CreateWindowW(L"Desktop Background", L"THAI NGU", WS_VISIBLE | WS_OVERLAPPEDWINDOW,100,100,500,500, NULL,NULL, hInst,NULL );
-
-		hwnd2 = CreateWindowW(L"Desktop Background", L"Remote desktop",WS_OVERLAPPEDWINDOW|WS_VISIBLE, 300,300,500,500, NULL,NULL, hInst, NULL);
-
-		hButton1 = CreateWindow(L"Button", L"Remote Process", WS_CHILD|WS_VISIBLE|WS_BORDER,200, 152, 150, 40 , hwnd2, (HMENU)2 ,NULL,NULL);
-		
-		hButton2 = CreateWindow(L"Button", L"Browser", WS_CHILD|WS_VISIBLE|WS_BORDER,150, 200, 80, 80 , hwnd1, (HMENU)3 ,NULL,NULL);
-	//browser folder
-
-
-		MSG msg = {};
-		while (GetMessage(&msg,NULL,NULL,NULL))
-		{
-			TranslateMessage(&msg);
-			DispatchMessage(&msg);
-
-		}
+	if (!RegisterClassW(&wc)) {
 		return 0;
+
+	}
+	hMain = CreateWindowW(L"Desktop Background", L"THAI NGU", WS_VISIBLE | WS_OVERLAPPEDWINDOW, 100, 100, 500, 500, NULL, NULL, hInst, NULL);
+	ShowWindow(hMain, nCmdShow);
+	UpdateWindow(hMain);
+	
+	
+	
+	
+	
+
+	MSG msg = {};
+	while (GetMessage(&msg, NULL, NULL, NULL))
+	{
+		
+		DispatchMessage(&msg);
+
+	}
+	return (int) msg.wParam;
+
 }
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) 
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
 	switch (msg)
 	{
+	case WM_CREATE:
+		HWND hwndTreeView;
+		hwndTreeView = CreateATreeView(hwnd);
+		AddItemToTree(hwndTreeView, L"Drink", 1);
+		
+
 	
-	case WM_COMMAND:
-		if (wp == 1) {
-				
-			
-			wchar_t path[100];
-			char duoifile[4] = "jpg";
-			GetWindowTextW(hCuaSo1, path, 100);
-			while (path[length] != NULL)
-			{
-				length++;
-			}
-			if ((path[length - 1] == duoifile[2]) && (path[length - 2] == duoifile[1]) && (path[length - 3] == duoifile[0]))
-			{
-				HANDLE handle = FindFirstFile(path, (LPWIN32_FIND_DATA)lpFindData);
-
-				if (handle == INVALID_HANDLE_VALUE)
-				{
-					MessageBox(hwnd, L"Khong tim thay", L"Alert", MB_OK);
-				}
-				else
-				{
-					SystemParametersInfo(SPI_SETDESKWALLPAPER, 0, path, SPIF_SENDWININICHANGE);
-					MessageBox(hwnd, L"Congarts", L"Chuc Mung", MB_OK);
-
-
-
-				}
-
-			}
-			else
-			{
-				MessageBox(hwnd, L"Alert", L"canh bao", MB_OK);
-			}
-		}
-		
-		if (wp == 2)
-		{
-			SendMessage(hwnd1, WM_COMMAND, 1, NULL);
-		
-		}
-	
-		
-		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
-	case WM_CREATE:
-		TaoCuaSo(hwnd);
-		break;
+	
 	default:
 		return DefWindowProc(hwnd, msg, wp, lp);
 	}
 }
-void TaoCuaSo(HWND hwnd)
-{
-	hCuaSo1 = CreateWindow(L"Edit", L"", WS_BORDER | WS_VISIBLE|WS_CHILD|ES_AUTOVSCROLL|ES_MULTILINE, 150, 100, 210, 30, hwnd1, NULL, NULL, NULL);
-	hButton = CreateWindow(L"Button", L"Set Backgroud", WS_BORDER | WS_CHILD|WS_VISIBLE, 200, 152, 100, 30, hwnd1, (HMENU) 1, NULL, NULL);
-	
+HWND CreateATreeView(HWND hwndParent) {
+	RECT rcClient;
+	HWND hwndTV;
+
+
 }

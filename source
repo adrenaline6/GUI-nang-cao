@@ -1,72 +1,601 @@
-#include <Windows.h> 
-
+#include <Windows.h>
+#include <string.h>
+#include <mbstring.h>
 #include <commctrl.h>
-
+#include <iostream>
+#include<Shlwapi.h>
+#pragma comment(lib,"Shlwapi.lib")
+#pragma comment(lib, "comctl32.lib")
+#define LEFT_WINDOW_WIDTH 5
 #define ID_TREEVIEW 100
-LRESULT CALLBACK WndProc(HWND, UINT, WPARAM, LPARAM);
+#define ID_LISTVIEW 200
+#define WM_SETLIST (WM_USER + 1)
+#define WM_NODE (WM_USER + 2)
+HINSTANCE g_hInst;
+HWND hwndMain;
+HWND hTree;
+HWND hList;
+void addKey(HWND hwnd);
+struct para {
+	HTREEITEM item;
+	int j;
+};
+void setListView(int i, wchar_t* path);
 
-HWND hwndTV;
-HWND hMain;
-HWND CreateATreeView(HWND hwndParnet);
-HTREEITEM AddItemToTree(HWND hwndTV,LPTSTR lpszText, int nLevel);
 
-int WINAPI WinMain(HINSTANCE hInst, HINSTANCE hPrev, LPSTR args, int nCmdShow) {
-	
-	
-	
+
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
+int WINAPI wWinMain(HINSTANCE hInst, HINSTANCE hPrev, LPWSTR lpCmdLine, int nShowCmd)
+{
+	const wchar_t CLASS_NAME[] = L"Window Class";
 	WNDCLASS wc = {};
-
-	
-	wc.hInstance = hInst; 
 	wc.lpfnWndProc = WndProc;
-	wc.lpszClassName = L"Desktop Background";
-	wc.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+	wc.hInstance = hInst;
+	wc.lpszClassName = CLASS_NAME;
+	RegisterClass(&wc);
+	hwndMain = CreateWindowEx(
+		0,
+		CLASS_NAME,
+		L"Registry",
+		WS_OVERLAPPEDWINDOW | WS_VISIBLE | WS_BORDER,
+		270, 100, 1000, 700,
+		NULL,
+		NULL,
+		hInst,
+		NULL);
 
-	if (!RegisterClassW(&wc)) {
-		return 0;
 
-	}
-	hMain = CreateWindowW(L"Desktop Background", L"THAI NGU", WS_VISIBLE | WS_OVERLAPPEDWINDOW, 100, 100, 500, 500, NULL, NULL, hInst, NULL);
-	ShowWindow(hMain, nCmdShow);
-	UpdateWindow(hMain);
-	
-	
-	
-	
-	
-
-	MSG msg = {};
-	while (GetMessage(&msg, NULL, NULL, NULL))
+	if (hwndMain == NULL)
 	{
-		
-		DispatchMessage(&msg);
 
+		return 0;
 	}
-	return (int) msg.wParam;
-
+	ShowWindow(hwndMain, nShowCmd);
+	UpdateWindow(hwndMain);
+	MSG msg;
+	while (GetMessage(&msg, NULL, 0, 0))
+	{
+		TranslateMessage(&msg);
+		DispatchMessage(&msg);
+	}
+	return msg.wParam;
 }
-LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lparam)
 {
 	switch (msg)
+	
 	{
+	static int LeftWindow_width;
 	case WM_CREATE:
-		HWND hwndTreeView;
-		hwndTreeView = CreateATreeView(hwnd);
-		AddItemToTree(hwndTreeView, L"Drink", 1);
+	{
+		INITCOMMONCONTROLSEX Control;
+		Control.dwICC = ICC_TREEVIEW_CLASSES;
+		Control.dwSize = sizeof(INITCOMMONCONTROLSEX);
+		InitCommonControlsEx(&Control);
+		hTree = CreateWindowEx(
+			0,
+			WC_TREEVIEW,
+			TEXT("Tree View"),
+			WS_VISIBLE | WS_CHILD | WS_BORDER | TVS_HASLINES | TVS_LINESATROOT|
+			TVS_TRACKSELECT | TVS_SHOWSELALWAYS | TVS_HASBUTTONS,
+			0,
+			0,
+			350,
+			700,
+			hwnd,
+			(HMENU)ID_TREEVIEW,
+			g_hInst,
+			NULL);
+		LeftWindow_width = LEFT_WINDOW_WIDTH;
+		addKey(hwnd);
+		//list view
+		Control.dwICC = ICC_LISTVIEW_CLASSES;
+		InitCommonControlsEx(&Control);
+		hList = CreateWindowExW(
+			0,
+			WC_LISTVIEW,
+			TEXT("List view"),
+			WS_VISIBLE | WS_CHILD | WS_BORDER | LVS_REPORT,
+			350,
+			0,
+			1000,
+			500,
+			hwnd,
+			(HMENU)ID_LISTVIEW,
+			g_hInst,
+			NULL);
+		//
+		//
+		if (hList == NULL) {
+			MessageBox(NULL, L"de", L"ERROR", MB_OK);
+			return 0;
+		}
+		//tạo column cho listview
+		LVCOLUMN lvc;
+		lvc.mask = LVCF_FMT | LVCF_WIDTH | LVCF_TEXT | LVCF_SUBITEM;
+		lvc.fmt = LVCFMT_LEFT;
+		lvc.cx = 150;
+		lvc.pszText = (LPWSTR)TEXT("Name");
+		ListView_InsertColumn(hList, 1, &lvc);
+
+
+		lvc.cx = 150;
+		lvc.pszText = (LPWSTR)TEXT("Type");
+		ListView_InsertColumn(hList, 2, &lvc);
+
+		lvc.cx = 500;
+		lvc.pszText = (LPWSTR)TEXT("Data");
+		ListView_InsertColumn(hList, 3, &lvc);
+		DeleteObject(&lvc);
+
+		break;
+	}
+	case WM_NOTIFY: {
+		LPNM_TREEVIEW pntv = (LPNM_TREEVIEW)lparam; //hàm chứa thông tin thông báo của tree view 
+		TCHAR achKey[259] = { 0 };
+		wchar_t path[1000] = { 0 };
+		if (pntv->hdr.code == TVN_SELCHANGED)		//thông báo cho cửa sổ main nếu chọn từ key này sang key khác
+		{   
+			HTREEITEM hSelectedItem = TreeView_GetSelection(hTree);	//truy xuất mục key được chọn 
+			if (hSelectedItem != NULL) 
+			{
+				TVITEM item;
+				int i = 0;
+				int j = 0;
+
+				while (true) {
+						
+					item.hItem = hSelectedItem;		//truyền giá trị của key được chọn vào để kiểm tra 
+					item.mask = TVIF_TEXT;
+					item.cchTextMax = 259;
+					item.pszText = achKey;
+					TreeView_GetItem(hTree, &item);
+
+					if (item.lParam != 100) {
+
+						if (item.lParam == 1) {
+							j = 1;
+						}
+						else if (item.lParam == 2) {
+							j = 2;
+						}
+						else if (item.lParam == 3) {
+							j = 3;
+						}
+						else if (item.lParam == 4) {
+							j = 4;
+						}
+						else if (item.lParam == 6) {
+							j = 6;
+						}
+						else {
+							PathCombine(path, item.pszText, path);		//gắn đường dẫn của các HKEY
+							++i;
+						}
+						hSelectedItem = TreeView_GetParent(hTree, hSelectedItem);	//đặt lại giá trị chọn là key cha
+					}
+					else {
+						break;
+					}
+				}
+
+				if (i > 0) 
+				{
+					wcscat(path, L"\\");
+					SendMessage(hwnd, WM_SETLIST, j, (LPARAM)path);
+				}
+				else 
+				{
+					SendMessage(hwnd, WM_SETLIST, j, (LPARAM)L"");
+				}
+			}
+		}
+		//rẽ nhánh khi đã hoặc sắp mở hoặc thu gọn lại
+		else if (pntv->action == TVE_EXPAND && pntv->hdr.code == TVN_ITEMEXPANDING) 
+		
+		{
+			if (pntv->itemNew.state == TVIS_EXPANDEDONCE) 
+			{
+				return 0;
+			}
+			HTREEITEM hSelectedItem = TreeView_GetSelection(hTree);
+			if (hSelectedItem != NULL) {
+				TVITEM item;
+				item.hItem = hSelectedItem;
+				item.mask = TVIF_STATE;
+				TreeView_GetItem(hTree, &item);
+				if (item.state == TVIS_EXPANDEDONCE + TVIS_SELECTED && pntv->itemNew.hItem == item.hItem) {
+					return 0;
+				}
+			}
+
 		
 
+			HTREEITEM htr = pntv->itemNew.hItem;
+			HTREEITEM parent = htr;
+			if (htr != NULL) {
+				TVITEM item;
+				int i = 0;
+				int j = 0;
+
+				while (true) {
+					ZeroMemory(achKey, sizeof(achKey));
+					item.hItem = htr;
+					item.mask = TVIF_TEXT;
+					item.cchTextMax = 128;
+					item.pszText = achKey;
+
+					TreeView_GetItem(hTree, &item);
+
+					if (item.lParam != 100) {
+
+						if (item.lParam == 1) {
+							j = 1;
+						}
+						else if (item.lParam == 2) {
+							j = 2;
+						}
+						else if (item.lParam == 3) {
+							j = 3;
+						}
+						else if (item.lParam == 4) {
+							j = 4;
+						}
+						else if (item.lParam == 6) {
+							j = 6;
+						}
+						else {
+							PathCombine(path, item.pszText, path);
+							++i;
+						}
+						htr = TreeView_GetParent(hTree, htr);
+					}
+					else {
+						break;
+					}
+				}
+
+				struct para param;
+				param.item = parent;
+				param.j = j;
+				if (i > 0) {
+					wcscat(path, L"\\");
+					SendMessage(hwnd, WM_NODE, (WPARAM)&param, (LPARAM)path);
+				}
+				else {
+					SendMessage(hwnd, WM_NODE, (WPARAM)&param, (LPARAM)L"");
+				}
+			}
+
+		}
+		DeleteObject(pntv);
+		break;
+	}
 	
+
+
+	case WM_NODE: {
+		TV_INSERTSTRUCT tvInsert;
+		struct para *param;
+		param = (struct para*)wParam;
+		if (param->j == 0) {
+			return 0;
+		}
+
+		DWORD  cSubKeys = 0;
+		HKEY hkey;
+		wchar_t* path = (wchar_t*)lparam;
+		if (RegOpenKeyExW((HKEY)(param->j + 2147483647), path, 0, KEY_READ, &hkey) == ERROR_SUCCESS) {
+			RegQueryInfoKeyW(
+				hkey,				//lấy ra HKEY và subkey của chúng 
+				NULL,
+				NULL,
+				NULL,
+				&(cSubKeys),
+				NULL,
+				NULL,
+				NULL,
+				NULL,
+				NULL,
+				NULL,
+				NULL);
+
+			if (cSubKeys > 0) {
+
+				DWORD dwsize;
+				TCHAR achKey[1036] = { 0 };
+				TCHAR paths[1000] = { 0 };
+				int retCode = 0;
+				for (int i = 0; i < cSubKeys; ++i) {
+
+					dwsize = sizeof(achKey);
+					retCode = RegEnumKeyEx(
+						hkey, 
+						i, 
+						achKey, 
+						&(dwsize), 
+						NULL, 
+						NULL,
+						NULL, 
+						NULL);
+					//
+					if (retCode == ERROR_SUCCESS) {
+						tvInsert.hParent = param->item;
+						tvInsert.item.pszText = achKey;
+						tvInsert.hInsertAfter = TVI_LAST;
+						tvInsert.item.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_CHILDREN;
+						tvInsert.item.iImage = 1;
+						tvInsert.item.iSelectedImage = 1;
+
+						ZeroMemory(paths, sizeof(paths));
+						if (path != NULL) {
+							wcscat(paths, path);
+							wcscat(paths, achKey);
+						}
+						HKEY childkey;
+						DWORD  cSubKey = 0;
+						RegOpenKeyExW((HKEY)(param->j + 2147483647), paths, 0, KEY_READ, &childkey);
+						RegQueryInfoKeyW(
+							childkey,
+							NULL,
+							NULL,
+							NULL,
+							&(cSubKey),
+							NULL,
+							NULL,
+							NULL,
+							NULL,
+							NULL,
+							NULL,
+							NULL);
+						tvInsert.item.cChildren = 0;
+						if (cSubKey > 0) {
+							tvInsert.item.cChildren = 1;
+						}
+						TreeView_InsertItem(hTree, &tvInsert);
+						RegCloseKey(childkey);
+					}
+				}
+			}
+		}
+		TreeView_SortChildren(hTree, param->item, TRUE);
+		RegCloseKey(hkey);
+		break;
+	}
+	case WM_SETLIST: {
+		setListView(wParam, (wchar_t*)(lparam));
+		break;
+	}
+	
+	case WM_COMMAND:
+		break;
+	case WM_CLOSE:
+		DestroyWindow(hwnd);
+		break;
 	case WM_DESTROY:
 		PostQuitMessage(0);
 		break;
-	
-	default:
-		return DefWindowProc(hwnd, msg, wp, lp);
+	default:	
+		return DefWindowProc(hwnd, msg, wParam, lparam);
 	}
-}
-HWND CreateATreeView(HWND hwndParent) {
-	RECT rcClient;
-	HWND hwndTV;
-
+	return 0;
 
 }
+void addKey(HWND hwnd) {
+	TV_INSERTSTRUCT tvInsert;
+	
+	tvInsert.hParent = NULL;
+	tvInsert.hInsertAfter = TVI_ROOT;
+	tvInsert.item.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM;
+	tvInsert.item.pszText = (LPWSTR)TEXT("Computer");
+	tvInsert.item.lParam = 100;
+	
+	HTREEITEM htree = TreeView_InsertItem(hTree, &tvInsert);
+
+	tvInsert.hParent = htree;
+	tvInsert.hInsertAfter = TVI_LAST;
+	tvInsert.item.mask = TVIF_TEXT | TVIF_IMAGE | TVIF_SELECTEDIMAGE | TVIF_PARAM | TVIF_CHILDREN;
+	tvInsert.item.pszText = (LPWSTR)TEXT("HKEY_CLASSES_ROOT");
+	tvInsert.item.lParam = 1;
+	HTREEITEM htreenode1 = TreeView_InsertItem(hTree, &tvInsert);
+
+	tvInsert.item.pszText = (LPWSTR)TEXT("HKEY_CURRENT_USER");
+	tvInsert.item.lParam = 2;
+	HTREEITEM htreenode2 = TreeView_InsertItem(hTree, &tvInsert);
+
+	tvInsert.item.pszText = (LPWSTR)TEXT("HKEY_LOCAL_MACHINE");
+	tvInsert.item.lParam = 3;
+	HTREEITEM htreenode3 = TreeView_InsertItem(hTree, &tvInsert);
+
+	tvInsert.item.pszText = (LPWSTR)TEXT("HKEY_USERS");
+	tvInsert.item.lParam = 4;
+	HTREEITEM htreenode4 = TreeView_InsertItem(hTree, &tvInsert);
+
+	tvInsert.item.pszText = (LPWSTR)TEXT("HKEY_CURRENT_CONFIG");
+	tvInsert.item.lParam = 6;
+	HTREEITEM htreenode5 = TreeView_InsertItem(hTree, &tvInsert);
+	TreeView_EnsureVisible(hTree, htreenode5);
+	
+}
+void setListView(int q, wchar_t* path) {
+	ListView_DeleteAllItems(hList);		//xóa các listview đã mở trc đó tránh hiện lại
+	HKEY hkey;
+	int retcode;
+
+	if (RegOpenKeyEx((HKEY)(2147483647 + q), path, 0, KEY_READ | KEY_QUERY_VALUE, &hkey) == ERROR_SUCCESS) {
+		DWORD nValue;
+		DWORD lpcbMaxValueNameLen;
+		DWORD lpcbMaxValueLen;
+
+		retcode = RegQueryInfoKey(
+			hkey,
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			NULL,
+			&nValue,
+			&lpcbMaxValueNameLen,
+			&lpcbMaxValueLen,
+			NULL,
+			NULL
+		);
+
+		if (retcode == ERROR_SUCCESS && nValue > 0) {
+			DWORD SIZE;
+			DWORD code = 0;
+			DWORD valuesize;
+			int k = 1;
+			LPWSTR value = (LPWSTR)malloc((lpcbMaxValueLen + 1) * sizeof(WCHAR));
+			valuesize = (lpcbMaxValueLen + 1) * sizeof(WCHAR);
+			retcode = RegQueryValueEx(hkey, NULL, NULL, &code, (LPBYTE)value, &valuesize);
+			if (retcode == 0) {
+				LVITEMW lv;
+				lv.mask = LVFIF_TEXT;
+				lv.pszText = (LPWSTR)TEXT("Default");
+				lv.iItem = 0;
+				lv.iSubItem = 0;
+				DeleteObject(&lv);
+				//
+				ListView_InsertItem(hList, &lv);
+				ListView_SetItemText(hList, 0, 1, (LPWSTR)TEXT("REG_SZ"));
+				ListView_SetItemText(hList, 0, 2, value);
+			}
+			else if (retcode == 2) {
+				LVITEMW lv;
+				lv.mask = LVFIF_TEXT;
+				lv.pszText = (LPWSTR)TEXT("Default");
+				lv.iItem = 0;
+				lv.iSubItem = 0;
+				DeleteObject(&lv);
+				//
+				ListView_InsertItem(hList, &lv);
+				ListView_SetItemText(hList, 0, 1, (LPWSTR)TEXT("REG_SZ"));
+				ListView_SetItemText(hList, 0, 2, (LPWSTR)TEXT("Value not set"));
+			}
+			free(value);
+
+
+			for (DWORD i = 0; i < nValue; ++i) 
+			{
+				LPWSTR nameOfValue = (LPWSTR)malloc(++lpcbMaxValueNameLen * sizeof(WCHAR));
+				SIZE = lpcbMaxValueNameLen;
+				LPWSTR value = (LPWSTR)malloc(++lpcbMaxValueLen * sizeof(WCHAR));
+				valuesize = lpcbMaxValueLen * sizeof(WCHAR);
+				retcode = RegEnumValue(hkey, i, nameOfValue, &SIZE, NULL, &code, (LPBYTE)value, &valuesize);
+				if (retcode == ERROR_SUCCESS && wcscmp(nameOfValue, L"") != 0) 
+				{
+					LVITEMW lv;
+					lv.mask = LVFIF_TEXT;
+					lv.pszText = nameOfValue;
+					lv.iItem = k;
+					lv.iSubItem = 0;
+					DeleteObject(&lv);
+
+					//
+					ListView_InsertItem(hList, &lv);
+					//
+					if (code == 3 || code == 9 || code == 8 || code == 10) {
+						if (code == 3) {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_BINARY"));
+						}
+						else if (code == 8) {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_RESOURCE_LIST"));
+						}
+						else if (code == 9) {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_FULL_RESOURCE_DESCRIPTOR"));
+						}
+						else {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_RESOURCE_REQUIREMENTS_LIST"));
+						}
+
+						if (valuesize > 100) {
+							valuesize = 100;
+						}
+						wchar_t* buf = (wchar_t*)malloc((valuesize + 1) * 6);
+						wmemset(buf, 0, valuesize + 1);
+						wchar_t buff[3] = { 0 };
+						unsigned char cast;
+
+						for (size_t m = 0; m < valuesize; m++) {
+							cast = *((unsigned char*)value + m);
+							swprintf(buff, 3, L"%02x", cast);
+							wcscat(buf, buff);
+							wcscat(buf, L" ");
+						}
+						ListView_SetItemText(hList, k, 2, buf);
+						free(buf);
+					}
+					else if (code == 4 || code == 5) {
+						if (code == 5) {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_DWORD"));
+						}
+						else {
+							ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_DWORD"));
+						}
+						DWORD number = (*(DWORD*)value);
+						wchar_t bufff[40];
+						swprintf(bufff, 40, L"0x%08x(%d)", number, number);
+						ListView_SetItemText(hList, k, 2, bufff);
+					}
+					else if (code == 2) {
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_EXPAND_SZ"));
+						ListView_SetItemText(hList, k, 2, value);
+					}
+					else if (code == 6) {
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_LINK"));
+						ListView_SetItemText(hList, k, 2, value);
+
+					}
+					else if (code == 7) {
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_MULTI_SZ"));
+						ListView_SetItemText(hList, k, 2, value);
+
+					}
+					else if (code == 0) {
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_NONE"));
+						ListView_SetItemText(hList, k, 2, (LPWSTR)TEXT("Zero-length binary value"));
+
+					}
+					else if (code == 11) {
+						int number = (int)*value;
+						wchar_t buff[30];
+						swprintf(buff, 30, L"0x%16x(%d)", number, number);
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_QWORD"));
+						ListView_SetItemText(hList, k, 2, buff);
+
+
+					}
+					else if (code == 1) {
+						ListView_SetItemText(hList, k, 1, (LPWSTR)TEXT("REG_SZ"));
+						ListView_SetItemText(hList, k, 2, value);
+					}
+					k++;
+				}
+				else if (retcode == ERROR_MORE_DATA)
+				{
+					MessageBox(NULL, L"DEV ERROR", L"DEV ERROR", MB_OK);
+				}
+				free(value);
+				free(nameOfValue);
+			}
+		}
+		else {
+			LVITEMW lv;
+			lv.mask = LVFIF_TEXT;
+			lv.pszText = (LPWSTR)TEXT("Default");
+			lv.iItem = 0;
+			lv.iSubItem = 0;
+			DeleteObject(&lv);
+			//
+			ListView_InsertItem(hList, &lv);
+			ListView_SetItemText(hList, 0, 1, (LPWSTR)TEXT("REG_SZ"));
+			ListView_SetItemText(hList, 0, 2, (LPWSTR)TEXT("Value not set"));
+		}
+	}
+
+	RegCloseKey(hkey);
+
+}
+
